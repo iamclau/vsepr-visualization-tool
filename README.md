@@ -28,7 +28,9 @@ Type a molecule with one central atom (SF4, NO3-, NH4+, SO4^2-…) and step thro
 5. Put leftover electrons on the central atom
 6. Check the central atom's octet, forming double or triple bonds if needed
 7. Check the work: electron count, octets, formal charges, resonance, ion brackets
-8. Count electron domains → VSEPR shape, shown in 3D
+8. Count electron domains: each domain on the central atom is circled and numbered
+9. Domains → first name (electron geometry), shown in 3D with ghost spheres where the lone pairs point
+10. Bonded atoms (X) vs. lone pairs (E) → second name (molecular shape), e.g. "Trigonal Bipyramidal – Seesaw"
 
 The 2D Lewis drawing updates at every step, with a running electron tally.
 

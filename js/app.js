@@ -526,11 +526,22 @@
     if (charge) t7 += `<br>Because it's an ion, draw brackets around it with the charge (${supCharge(charge)}).`;
     if (Math.abs(fc.c) >= 2 && PERIOD[central] >= 3) t7 += `<br><b>Note:</b> ${central} has a large formal charge (${fc.c > 0 ? "+" : "−"}${Math.abs(fc.c)}). Some textbooks redraw this with double bonds to O (an expanded octet on ${central}) to bring the formal charges closer to zero. The VSEPR shape is the same either way.`;
     steps.push({ name: "Check your work", draw: { phase: "final", st: snap(), fc }, tally: `${bondE + lpE} e⁻ drawn = ${V} e⁻ counted`, text: t7 });
-    // step 8: VSEPR
+    // steps 8-10: VSEPR
     const e = st.clp, b = nb, sn = b + e, info = shapeInfo(b, e);
-    const t8 = `Count <b>electron domains</b> on ${central}: ${b} bonded atom${b > 1 ? "s" : ""} + ${e} lone pair${e === 1 ? "" : "s"} = <b>${sn}</b>${st.bonds.some(x => x > 1) ? " (a double or triple bond counts as just one domain)" : ""}.<br>` +
-      (info.key ? `${sn} domains → <b>${EG[sn].toLowerCase()}</b> electron geometry. With ${e} lone pair${e === 1 ? "" : "s"} (${axe(b, e)}), the molecular shape is <b>${info.name.toLowerCase()}</b>, bond angle ${info.ang}. Hybridization: ${HYB[sn]}.` : `With only two atoms, the shape is <b>linear</b>.`);
-    steps.push({ name: "Use VSEPR to find the shape", draw: { phase: "final", st: snap(), fc }, tally: `${axe(b, e)} → ${info.name}`, text: t8, vsepr: true });
+    const multi = st.bonds.some(x => x > 1);
+    const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    steps.push({ name: "Count the electron domains", draw: { phase: "final", st: snap(), fc, hl: "domains" }, tally: `Electron domains on ${central}: ${sn}`,
+      text: `Circle everything attached to the central atom, ${central}. Each <b>bonded atom</b> is one domain${multi ? " (a double or triple bond still counts as just one)" : ""}, and each <b>lone pair</b> on ${central} is one domain. Lone pairs on the outer atoms don't count.<br><br>${central}: ${pl(b, "bonded atom")} + ${pl(e, "lone pair")} = <b>${pl(sn, "domain")}</b>.` });
+    const egRows = [2, 3, 4, 5, 6].map(k => `<tr${k === sn ? ' style="font-weight:700;color:var(--sel)"' : ""}><td>${k} domains</td><td>→ ${EG[k]}</td></tr>`).join("");
+    steps.push({ name: "Domains → first name (electron geometry)", draw: { phase: "final", st: snap(), fc, hl: "domains" }, view: "eg",
+      tally: sn >= 2 ? `First name: ${titleCase(EG[sn])}` : "Only two atoms",
+      text: sn >= 2 ? `The domains spread out as far apart as possible. The number of domains gives the <b>electron geometry</b>, the first name:<table>${egRows}</table>${central} has ${sn} domains, so the first name is <b>${EG[sn].toLowerCase()}</b>. It describes where <i>all</i> the domains point, lone pairs included. In 3D, the faint spheres mark where the lone pairs point.` : `With only one domain there is no arrangement to name: two atoms always make a straight line.` });
+    let t10;
+    if (b < 2) t10 = `There are only two atoms, so the molecule is <b>linear</b>. Any two points make a straight line.`;
+    else if (!e) t10 = `Split the domains: ${pl(b, "bonded atom")} (X) and no lone pairs (E), so it's <b>${axe(b, e)}</b>.<br><br>With no lone pairs, the atoms sit at every domain, so the second name matches the first: <b>${info.name.toLowerCase()}</b>.<br>Bond angle: ${info.ang}. Hybridization: ${HYB[sn]}.`;
+    else t10 = `Split the domains: ${pl(b, "bonded atom")} (X, circled blue) and ${pl(e, "lone pair")} (E, circled gold), so it's <b>${axe(b, e)}</b>.<br><br>Lone pairs push on the bonds but aren't part of the shape's name, so name the shape from the <b>atoms only</b>: <b>${info.name.toLowerCase()}</b>.<br>Bond angle: ${info.ang}. Hybridization: ${HYB[sn]}.${sn === 5 ? " Lone pairs take the middle (equatorial) positions." : sn === 6 && e === 2 ? " The two lone pairs sit opposite each other." : ""}`;
+    steps.push({ name: "Lone pairs vs. atoms → second name (shape)", draw: { phase: "final", st: snap(), fc, hl: "split" }, view: "shape", vsepr: true,
+      tally: b < 2 ? "Linear (two atoms)" : `${axe(b, e)} → ${viewTitle(b, e)}`, text: t10 });
     const pretty = order.map(el => el + toSub(atoms[el])).join("") + supCharge(charge);
     return { steps, central, outer, charge, pretty, b, e, bonds: st.bonds, raw };
   }
@@ -597,9 +608,29 @@
       const lab = (x, y, q, used) => { if (!q) return ""; const a = freeDir(used, [45, 135, 315, 225, 90, 270, 0, 180].map(t => t * Math.PI / 180)); return `<text x="${(x + 27 * Math.cos(a)).toFixed(1)}" y="${(y - 27 * Math.sin(a)).toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="700" fill="${acc}" font-family="${font}">${q > 0 ? "+" : "−"}${Math.abs(q) > 1 ? Math.abs(q) : ""}</text>`; };
       g += lab(0, 0, d.fc.c, centerUsed); sol.outer.forEach((el, i) => { g += lab(pos[i][0], pos[i][1], d.fc.o[i], outerUsed[i]); });
     }
+    // VSEPR highlights: circle each domain on the central atom
+    if (d.hl && st) {
+      const bondCol = "#5b9bd5", lpCol = "#e3a21a", allCol = acc;
+      const tag = (x, y, t, c) => `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="${c}" font-family="${font}">${t}</text>`;
+      let k = 0;
+      sol.outer.forEach((el, i) => {
+        const [x, y] = pos[i], ang = Math.atan2(y, x) * 180 / Math.PI, L = Math.hypot(x, y);
+        const c = d.hl === "split" ? bondCol : allCol; k++;
+        g += `<ellipse cx="${(x / 2).toFixed(1)}" cy="${(y / 2).toFixed(1)}" rx="${(L / 2 - 24).toFixed(1)}" ry="12" transform="rotate(${ang.toFixed(1)} ${(x / 2).toFixed(1)} ${(y / 2).toFixed(1)})" fill="${c}" fill-opacity="0.10" stroke="${c}" stroke-width="2"/>`;
+        const px = -y / L * 24, py = x / L * 24;
+        g += tag(x / 2 + px, y / 2 + py, d.hl === "split" ? "X" : String(k), c);
+      });
+      const lpAngles = centerUsed.slice(showBonds ? bondDirC.length : 0);
+      lpAngles.forEach(a => {
+        const c = d.hl === "split" ? lpCol : allCol; k++;
+        const ox = 30 * Math.cos(a), oy = -30 * Math.sin(a);
+        g += `<circle cx="${ox.toFixed(1)}" cy="${oy.toFixed(1)}" r="11" fill="${c}" fill-opacity="0.15" stroke="${c}" stroke-width="2"/>`;
+        g += tag(ox + 20 * Math.cos(a), oy - 20 * Math.sin(a), d.hl === "split" ? "E" : String(k), c);
+      });
+    }
     // center the molecule and fit the ion brackets to it
     const xs = [0, ...pos.map(p => p[0])], ys = [0, ...pos.map(p => p[1])];
-    const minX = Math.min(...xs) - 34, maxX = Math.max(...xs) + 34, minY = Math.min(...ys) - 34, maxY = Math.max(...ys) + 34;
+    const pad = d.hl ? 46 : 34; const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
     if (sol.charge && phase === "final") {
       const bx0 = minX - 6, bx1 = maxX + 6, by0 = minY - 4, by1 = maxY + 4;
@@ -627,7 +658,7 @@
     M.drag = () => !!drag;
     M.ok = true;
   }
-  function build3D(sol) {
+  function build3D(sol, view) {
     if (!M.ok) return;
     while (M.g.children.length) M.g.remove(M.g.children[0]);
     M.labels = [];
@@ -651,6 +682,13 @@
         cyl.position.copy(d).multiplyScalar(BOND_L / 2).addScaledVector(perp, o); cyl.quaternion.setFromUnitVectors(UPV, d); M.g.add(cyl);
       });
     });
+    // electron-geometry view: dashed outline joining every domain, plus a ghost sphere where each lone pair points
+    if (view === "eg" && EDGES[sn] && EDGES[sn].length) {
+      const pts = []; EDGES[sn].forEach(([i, j]) => { pts.push(dirs[i].clone().multiplyScalar(BOND_L), dirs[j].clone().multiplyScalar(BOND_L)); });
+      const ln = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: 0x9fb4ff, transparent: true, opacity: 0.7, dashSize: 0.12, gapSize: 0.08 }));
+      ln.computeLineDistances(); M.g.add(ln);
+      [...lpIdx].forEach(si => { const gh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 24, 18), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.35, depthWrite: false })); gh.position.copy(dirs[si]).multiplyScalar(BOND_L); M.g.add(gh); });
+    }
     [...lpIdx].forEach(si => {
       const d = dirs[si];
       const lobe = new THREE.Mesh(geo.lobe, new THREE.MeshPhongMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.42, depthWrite: false }));
@@ -658,8 +696,8 @@
       const perp = new THREE.Vector3(0, 0, 1); if (Math.abs(d.z) > 0.9) perp.set(1, 0, 0); perp.cross(d).normalize().multiplyScalar(0.1);
       [1, -1].forEach(sg => { const dot = new THREE.Mesh(geo.dot, new THREE.MeshBasicMaterial({ color: 0xfff1c4 })); dot.position.copy(d).multiplyScalar(0.85).addScaledVector(perp, sg); M.g.add(dot); });
     });
-    // one angle label
-    if (b >= 2) {
+    // one angle label (shape view only)
+    if (b >= 2 && view !== "eg") {
       const info = shapeInfo(b, e);
       let pick = null;
       for (let i = 0; i < bondSlots.length; i++) for (let j = i + 1; j < bondSlots.length; j++) {
@@ -700,7 +738,7 @@
     SV.sol = sol; SV.i = 0;
     $("svList").innerHTML = sol.steps.map((s, k) => `<li><button type="button" data-k="${k}"><span class="n">${k + 1}</span>${s.name}</button></li>`).join("");
     $("svList").querySelectorAll("button").forEach(b => b.addEventListener("click", () => showStep(+b.dataset.k)));
-    build3D(sol);
+    M.view = null;
     showStep(0);
   }
   function showStep(k) {
@@ -712,10 +750,12 @@
     $("svText").innerHTML = s.text;
     $("svTally").textContent = `${sol.pretty} · ${s.tally}`;
     drawLewis(sol, s.draw);
-    const last = !!s.vsepr;
-    M.show = last; $("sv3wait").hidden = last; $("svOpen").disabled = !last;
-    $("sv3over").innerHTML = last ? `${viewTitle(sol.b, sol.e)}<span>${sol.b + sol.e} domain${sol.b + sol.e === 1 ? "" : "s"} (${sol.b} bond${sol.b === 1 ? "" : "s"}, ${sol.e} lone pair${sol.e === 1 ? "" : "s"}) · ${sol.pretty}</span>` : "";
-    if (!last && M.ok) { $("sv3lab").innerHTML = ""; M.r.clear(); }
+    const view = s.view || null, last = !!s.vsepr, sn = sol.b + sol.e;
+    M.show = !!view; $("sv3wait").hidden = !!view; $("svOpen").disabled = !last;
+    if (view && M.view !== view + sol.raw) { build3D(sol, view); M.view = view + sol.raw; }
+    const sub = `<span>${sn} domain${sn === 1 ? "" : "s"} (${sol.b} bond${sol.b === 1 ? "" : "s"}, ${sol.e} lone pair${sol.e === 1 ? "" : "s"}) · ${sol.pretty}</span>`;
+    $("sv3over").innerHTML = !view ? "" : view === "eg" ? (sn >= 2 ? `${titleCase(EG[sn])}` : "Linear") + sub : viewTitle(sol.b, sol.e) + sub;
+    if (!view && M.ok) { $("sv3lab").innerHTML = ""; M.r.clear(); }
     $("svPrev").disabled = SV.i === 0; $("svNext").disabled = SV.i === sol.steps.length - 1; $("svAll").disabled = false;
   }
   // plain button + Enter key (a <form> submit is blocked inside sandboxed frames like Schoology's)
