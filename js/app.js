@@ -1,7 +1,7 @@
 // VSEPR Visualization Tool
 // Sections: shape data and slot geometry -> chart -> 3D builder (three.js) ->
 // facts panel -> Lewis structure solver (one central atom) -> 2D Lewis drawing ->
-// solver 3D view -> full screen -> controls.
+// solver 3D view -> full screen -> controls -> direct links.
 (function () {
   "use strict";
   const $ = id => document.getElementById(id);
@@ -432,6 +432,8 @@
     return { atoms, order, charge };
   }
 
+  const pl0 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const ELCOL = ["#6fa8ff", "#ff6b6b", "#5fd38d", "#f0b04e", "#c792ea", "#4dd0e1"];
   function solveLewis(raw) {
     const p = parseFormula(raw); if (p.err) return p;
     const { atoms, order, charge } = p;
@@ -459,6 +461,9 @@
     // order outer: put non-H first then H, keep grouping
     // 1. count
     const counts = order.map(el => ({ el, n: atoms[el], v: VAL[el], sub: atoms[el] * VAL[el] }));
+    const colorOf = {}; order.forEach((el, i) => { colorOf[el] = ELCOL[i % ELCOL.length]; });
+    const prettyF = order.map(el => el + toSub(atoms[el])).join("") + supCharge(charge);
+    const coloredF = order.map(el => `<span style="color:${colorOf[el]}">${el}${toSub(atoms[el])}</span>`).join("") + supCharge(charge);
     const V = counts.reduce((s, c) => s + c.sub, 0) - charge;
     if (V % 2) return { err: `${raw} has ${V} valence electrons, an odd number. Molecules with an unpaired electron (radicals like NO₂) aren't covered by the simple method.` };
     const nb = outer.length;
@@ -468,8 +473,8 @@
     let left = V;
     const steps = [];
     // step 1
-    steps.push({ name: "Count the valence electrons", draw: { phase: "atoms" }, tally: `Total valence electrons: ${V}`,
-      text: `<table>${counts.map(c => `<tr><td>${c.el}</td><td>group ${GROUP[c.el]} → ${c.v} e⁻ × ${c.n}</td><td>= ${c.sub}</td></tr>`).join("")}${charge ? `<tr><td>charge</td><td>${charge < 0 ? "−" + (-charge) + " charge → add " + (-charge) : "+" + charge + " charge → subtract " + charge}</td><td>${charge < 0 ? "+ " + (-charge) : "− " + charge}</td></tr>` : ""}<tr class="tot"><td>total</td><td></td><td>${V}</td></tr></table>${charge ? "A negative ion has extra electrons; a positive ion is missing some." : ""}` });
+    steps.push({ name: "Count the valence electrons", draw: { phase: "atoms", colors: colorOf }, tally: `Total valence electrons: ${V}`,
+      text: `<div class="sv-formula">${coloredF}</div><table>${counts.map(c => `<tr style="color:${colorOf[c.el]}"><td><b>${c.el}</b></td><td>${c.v} valence e⁻ × ${c.n}</td><td>= ${c.sub}</td></tr>`).join("")}${charge ? `<tr><td>charge</td><td>${charge < 0 ? "−" + (-charge) + " → " + (-charge) + " extra e⁻" : "+" + charge + " → " + charge + " fewer e⁻"}</td><td>${charge < 0 ? "+ " + (-charge) : "− " + charge}</td></tr>` : ""}<tr class="tot"><td>total</td><td></td><td>${V}</td></tr></table>` });
     // step 2
     steps.push({ name: "Find the central atom", draw: { phase: "central" }, tally: `Total valence electrons: ${V}`, text: why + ` The other atoms go around it.` });
     // step 3
@@ -494,10 +499,10 @@
     // step 6: central octet
     const cE = () => 2 * st.bonds.reduce((a, b) => a + b, 0) + 2 * st.clp;
     const target = central === "H" ? 2 : central === "Be" ? 4 : (central === "B" || central === "Al") ? 6 : 8;
-    let t6 = `Count the electrons around ${central}: ${st.bonds.reduce((a, b) => a + b, 0)} bond pair${nb > 1 ? "s" : ""} and ${st.clp} lone pair${st.clp === 1 ? "" : "s"} = <b>${cE()} e⁻</b>. `;
+    const before = cE();
+    let t6 = `<b>${central} has ${before} electrons</b> around it (${pl0(st.bonds.reduce((a, b) => a + b, 0), "bond")} + ${pl0(st.clp, "lone pair")}, 2 e⁻ each).<br><br>`;
     const moved = [];
-    if (cE() < 8 && target === 8) {
-      t6 += `${central} needs 8, so move lone pairs from the outer atoms into bonds, making double or triple bonds. Each move gives ${central} 2 more electrons without changing the total. `;
+    if (before < 8 && target === 8) {
       let guard = 0;
       while (cE() < 8 && guard++ < 10) {
         const cand = outer.map((el, i) => ({ el, i })).filter(o => o.el !== "H" && st.lp[o.i] > 0);
@@ -506,11 +511,12 @@
         const c = cand[0]; st.lp[c.i]--; st.bonds[c.i]++; moved.push(c.i);
       }
       const dbl = st.bonds.filter(b => b === 2).length, tri = st.bonds.filter(b => b === 3).length;
-      t6 += `Now ${central} has ${cE()} e⁻ ${cE() >= 8 ? '<span class="ok">✓</span>' : '<span class="warn">(still short)</span>'}: ${[dbl ? dbl + " double bond" + (dbl > 1 ? "s" : "") : "", tri ? tri + " triple bond" + (tri > 1 ? "s" : "") : ""].filter(Boolean).join(" and ")}.`;
-    } else if (cE() < target) t6 += `<span class="warn">${central} stays short of 8.</span>`;
-    else if (target < 8) t6 += `${central} is an exception: ${central === "Be" ? "beryllium is stable with 4 electrons" : central === "H" ? "hydrogen only holds 2" : (central === "B" ? "boron" : "aluminum") + " is stable with only 6 electrons"}, so no double bonds are needed <span class="ok">✓</span>.`;
-    else if (cE() === 8) t6 += `${central} has a full octet <span class="ok">✓</span>. No changes needed.`;
-    else t6 += `${central} has more than 8: an <b>expanded octet</b>. That's allowed because ${central} is in period ${PERIOD[central]}; atoms in period 3 and below can hold more than 8. <span class="ok">✓</span>`;
+      const made = [dbl ? pl0(dbl, "double bond") : "", tri ? pl0(tri, "triple bond") : ""].filter(Boolean).join(" and ");
+      t6 += `${central} needs 8. Move lone pairs from the outer atoms into bonds (shown in blue): ${made}.<br><br>Now ${central} has <b>${cE()}</b> ${cE() >= 8 ? '<span class="ok">✓</span>' : '<span class="warn">(still short)</span>'}`;
+    } else if (before < target) t6 += `<span class="warn">${central} is still short of 8.</span>`;
+    else if (target < 8) t6 += `${central === "Be" ? "Be is stable with 4" : central === "H" ? "H holds only 2" : central + " is stable with 6"}, so no double bonds are needed <span class="ok">✓</span>`;
+    else if (before === 8) t6 += `Full octet <span class="ok">✓</span> No changes needed.`;
+    else t6 += `More than 8 is an <b>expanded octet</b>, allowed for period 3 and below <span class="ok">✓</span>`;
     steps.push({ name: "Check the central atom's octet", draw: { phase: "fix", st: snap(), moved }, tally: `Electrons around ${central}: ${cE()}`, text: t6 });
     // step 7: verify totals + formal charge
     const bondE = 2 * st.bonds.reduce((a, b) => a + b, 0), lpE = 2 * (st.lp.reduce((a, b) => a + b, 0) + st.clp);
@@ -519,12 +525,26 @@
     const nonzero = fcList.filter(x => x[1] !== 0);
     const res = (() => { const eq = {}; outer.forEach((el, i) => { (eq[el] = eq[el] || []).push(st.bonds[i]); }); return Object.entries(eq).some(([el, arr]) => new Set(arr).size > 1) ? Object.entries(eq).find(([el, arr]) => new Set(arr).size > 1)[0] : null; })();
     const octOK = outer.every((el, i) => el === "H" ? true : 2 * st.lp[i] + 2 * st.bonds[i] === 8);
-    let t7 = `<b>Count every electron in the drawing:</b> ${bondE} in bonds + ${lpE} in lone pairs = ${bondE + lpE}. Step 1 said ${V} ${bondE + lpE === V ? '<span class="ok">✓ they match</span>' : '<span class="warn">✗ mismatch</span>'}.<br>`;
-    t7 += `<b>Octets:</b> ${outer.some(e => e !== "H") ? `every outer ${[...new Set(outer.filter(e => e !== "H"))].join("/")} has 8 ${octOK ? '<span class="ok">✓</span>' : '<span class="warn">✗</span>'}` : ""}${outer.includes("H") ? `${outer.some(e => e !== "H") ? "; " : ""}each H has 2 <span class="ok">✓</span>` : ""}; ${central} has ${cE()}.<br>`;
-    t7 += `<b>Formal charges</b> (valence − lone-pair e⁻ − bonds): ${nonzero.length ? nonzero.map(([a, q]) => `${a} ${q > 0 ? "+" : "−"}${Math.abs(q)}`).join(", ") + (charge ? `; they add up to ${charge > 0 ? "+" : "−"}${Math.abs(charge)}, the ion's charge` : "; they add up to 0 because the molecule is neutral") : "all zero"}.`;
-    if (res) t7 += `<br><b>Resonance:</b> the double bond could be on any of the ${outer.filter(e => e === res).length} ${res} atoms, so the real molecule is a blend of these drawings.`;
-    if (charge) t7 += `<br>Because it's an ion, draw brackets around it with the charge (${supCharge(charge)}).`;
-    if (Math.abs(fc.c) >= 2 && PERIOD[central] >= 3) t7 += `<br><b>Note:</b> ${central} has a large formal charge (${fc.c > 0 ? "+" : "−"}${Math.abs(fc.c)}). Some textbooks redraw this with double bonds to O (an expanded octet on ${central}) to bring the formal charges closer to zero. The VSEPR shape is the same either way.`;
+    const ok = '<span class="ok">✓</span>', no = '<span class="warn">✗</span>';
+    // octet per element (outer atoms grouped) + central
+    const octItems = [];
+    [...new Set(outer)].forEach(el => {
+      const idx = outer.map((e, i) => e === el ? i : -1).filter(i => i >= 0);
+      const vals = idx.map(i => 2 * st.lp[i] + 2 * st.bonds[i]);
+      const need = el === "H" ? 2 : 8;
+      octItems.push(`${el} ${[...new Set(vals)].join("/")} ${vals.every(v => v === need) ? ok : no}`);
+    });
+    octItems.unshift(`${central} ${cE()} ${cE() >= target || cE() > 8 ? ok : no}${cE() > 8 ? " (expanded)" : target < 8 ? ` (${central} is fine with ${target})` : ""}`);
+    const fcSum = fc.c + fc.o.reduce((a, b) => a + b, 0);
+    const fcTxt = nonzero.length ? nonzero.map(([a, q]) => `${a.replace(" (center)", "")} ${q > 0 ? "+" : "−"}${Math.abs(q)}`).join(", ") + `, everything else 0` : "all atoms 0";
+    let t7 = `<ol class="chk">
+      <li><b>Total valence electrons:</b> ${bondE} in bonds + ${lpE} in lone pairs = <b>${bondE + lpE}</b>, matches step 1 (${V}) ${bondE + lpE === V ? ok : no}</li>
+      <li><b>Octets:</b> ${octItems.join(" · ")}${outer.includes("H") ? " (H only needs 2)" : ""}</li>
+      <li><b>Formal charges</b> (valence − dots − bonds): ${fcTxt}. Sum = ${fcSum > 0 ? "+" : fcSum < 0 ? "−" : ""}${Math.abs(fcSum)}, ${charge ? "matches the ion's charge" : "neutral molecule"} ${fcSum === charge ? ok : no}</li>
+    </ol>`;
+    if (res) t7 += `<p class="sv-note"><b>Resonance:</b> the double bond can sit on any ${res}, so there are ${outer.filter(e => e === res).length} equivalent drawings.</p>`;
+    if (charge) t7 += `<p class="sv-note"><b>Ion:</b> draw brackets with the charge (${supCharge(charge)}) outside.</p>`;
+    if (Math.abs(fc.c) >= 2 && PERIOD[central] >= 3) t7 += `<p class="sv-note"><b>Note:</b> some textbooks add double bonds here (expanded octet) to lower ${central}'s ${fc.c > 0 ? "+" : "−"}${Math.abs(fc.c)} formal charge. The shape is the same.</p>`;
     steps.push({ name: "Check your work", draw: { phase: "final", st: snap(), fc }, tally: `${bondE + lpE} e⁻ drawn = ${V} e⁻ counted`, text: t7 });
     // steps 8-10: VSEPR
     const e = st.clp, b = nb, sn = b + e, info = shapeInfo(b, e);
@@ -575,7 +595,7 @@
     const pos = sol.outer.map((el, i) => { const a = angs[i] * Math.PI / 180; return [R * Math.cos(a), -R * Math.sin(a)]; });
     const font = "Atkinson Hyperlegible, Arial";
     let g = "";
-    const atomTxt = (x, y, t) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="${font}" font-weight="700" font-size="26" fill="${ink}">${t}</text>`;
+    const atomTxt = (x, y, t) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="${font}" font-weight="700" font-size="26" fill="${d.colors ? d.colors[t] : ink}">${t}</text>`;
     const dots = (x, y, ang, r, color = ink) => { const ox = x + r * Math.cos(ang), oy = y - r * Math.sin(ang), px = -Math.sin(ang) * 5.5, py = -Math.cos(ang) * 5.5; return `<circle cx="${(ox + px).toFixed(1)}" cy="${(oy + py).toFixed(1)}" r="3.2" fill="${color}"/><circle cx="${(ox - px).toFixed(1)}" cy="${(oy - py).toFixed(1)}" r="3.2" fill="${color}"/>`; };
     const showBonds = !["atoms", "central"].includes(phase);
     if (showBonds) sol.outer.forEach((el, i) => {
@@ -588,7 +608,7 @@
     if (phase === "central") g += `<circle cx="0" cy="0" r="24" fill="none" stroke="${acc}" stroke-width="3" stroke-dasharray="5 4"/>`;
     sol.outer.forEach((el, i) => { g += atomTxt(pos[i][0], pos[i][1], el); });
     if (phase === "atoms") {
-      [[0, 0, sol.central]].concat(sol.outer.map((el, i) => [pos[i][0], pos[i][1], el])).forEach(([x, y, el]) => { g += `<text x="${x}" y="${y + 28}" text-anchor="middle" font-size="12" font-family="IBM Plex Mono, monospace" fill="${acc}">${VAL[el]} e⁻</text>`; });
+      [[0, 0, sol.central]].concat(sol.outer.map((el, i) => [pos[i][0], pos[i][1], el])).forEach(([x, y, el]) => { g += `<text x="${x}" y="${y + 28}" text-anchor="middle" font-size="12" font-family="IBM Plex Mono, monospace" fill="${d.colors ? d.colors[el] : acc}">${VAL[el]} e⁻</text>`; });
     }
     // directions used around each atom (for placing lone pairs and charge labels)
     const bondDirC = sol.outer.map((el, i) => Math.atan2(-pos[i][1], pos[i][0]));
