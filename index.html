@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VSEPR Visualization Tool</title>
+<meta name="description" content="Interactive VSEPR chart and 3D molecule builder: see how electron domains and lone pairs produce linear, bent, trigonal pyramidal, seesaw and other shapes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="card bar" id="topbar">
+    <h1>VSEPR Visualization Tool</h1>
+  </header>
+
+  <div class="dash" id="dash">
+    <section class="card chart-card" id="chartCard" aria-label="VSEPR chart">
+      <div class="chart" id="chart"></div>
+    </section>
+
+    <div class="dcol">
+      <section class="card viewer-card" aria-label="3D molecule">
+        <div class="canvas-wrap" id="vWrap">
+          <canvas id="cv" aria-label="3D model of the molecule"></canvas>
+          <div class="labels" id="labels"></div>
+          <div class="overlay"><div class="big" id="oName"></div><div class="ax" id="oAx"></div></div>
+          <div class="vtools"><button type="button" id="zin" aria-label="Zoom in">+</button><button type="button" id="zout" aria-label="Zoom out">−</button><button type="button" id="vreset">Reset view</button><button type="button" class="fsbtn" data-fs="vWrap" title="Full screen">⛶ Full screen</button></div>
+          <div class="legend3d"><span><i style="background:#9aa4b5"></i>central atom</span><span><i style="background:#e8eef7"></i>bonded atom</span><span><i style="background:#ffcf5a"></i>lone pair (2 electrons)</span><span>drag to rotate · scroll to zoom</span></div>
+          <div class="vempty" id="noGL" hidden>3D view needs WebGL, which this browser has turned off.</div>
+        </div>
+      </section>
+
+      <section class="card controls" aria-label="Builder controls">
+        <div class="crow">
+          <span class="lab">Build</span>
+          <button type="button" class="btn-bond" id="addB">+ Bond</button>
+          <button type="button" class="btn-lp" id="addE">+ Lone pair</button>
+          <button type="button" id="remB">− Bond</button>
+          <button type="button" id="remE">− Lone pair</button>
+          <button type="button" id="clear">Clear</button>
+          <button type="button" class="primary" id="play">▶ Watch it build</button>
+        </div>
+        <div class="crow">
+          <span class="lab">Show</span>
+          <label for="tLP"><input type="checkbox" id="tLP" checked> Lone pairs</label>
+          <label for="tEG"><input type="checkbox" id="tEG" checked> Electron geometry</label>
+          <label for="tAng"><input type="checkbox" id="tAng" checked> Bond angles</label>
+          <label for="tLab"><input type="checkbox" id="tLab" checked> Atom labels</label>
+          <label for="tSq"><input type="checkbox" id="tSq" checked> Lone-pair squeeze</label>
+          <label for="tRot"><input type="checkbox" id="tRot" checked> Rotate</label>
+        </div>
+      </section>
+
+      <section class="card facts" aria-live="polite">
+        <div class="grid" id="factGrid"></div>
+        <p class="why" id="why"></p>
+        <div class="exs" id="exs"></div>
+      </section>
+    </div>
+  </div>
+
+
+  <section class="card solver" id="solver" aria-label="Lewis structure and VSEPR solver">
+    <div class="sv-head">
+      <div>
+        <h2 style="margin:0">Lewis structure → VSEPR: step by step</h2>
+        <p class="sv-sub">Type a molecule with one central atom. For ions, add the charge at the end: NO3-, NH4+, SO4^2-.</p>
+      </div>
+      <div class="sv-form" role="search">
+        <label for="svIn" class="sr">Molecule formula</label>
+        <input id="svIn" type="text" placeholder="e.g. SF4 or NO3-" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="svErr">
+        <button type="button" class="primary" id="svGo">Solve</button>
+      </div>
+    </div>
+    <div class="sv-err" id="svErr" role="alert"></div>
+    <div class="sv-body" id="svBody">
+      <div class="sv-steps">
+        <ol class="sv-list" id="svList"></ol>
+        <div class="sv-nav">
+          <button type="button" id="svPrev">◀ Back</button>
+          <button type="button" class="primary" id="svNext">Next step ▶</button>
+          <button type="button" id="svAll">Show answer</button>
+        </div>
+      </div>
+      <div class="sv-explain">
+        <div class="sv-stepname" id="svName"></div>
+        <div class="sv-text" id="svText"></div>
+        <div class="sv-tally" id="svTally"></div>
+      </div>
+      <div class="sv-draw" id="svDraw">
+        <svg id="svSvg" viewBox="-190 -150 380 300" role="img" aria-label="Lewis structure drawing"></svg>
+      </div>
+      <div class="sv-3d">
+        <div class="canvas-wrap sv-cw" id="sv3wrap">
+          <canvas id="sv3" aria-label="3D VSEPR shape of the molecule"></canvas>
+          <div class="labels" id="sv3lab"></div>
+          <div class="sv3-over" id="sv3over"></div>
+          <div class="vempty" id="sv3wait">The 3D shape appears at the last step.</div>
+          <div class="vtools"><button type="button" class="fsbtn" data-fs="sv3wrap" title="Full screen">⛶ Full screen</button></div>
+        </div>
+        <button type="button" id="svOpen" class="sv-open">Open this shape in the 3D builder above ↑</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
