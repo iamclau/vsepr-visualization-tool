@@ -82,7 +82,7 @@ I designed the features, the classroom workflow and the chemistry method, and ch
 
 ## Related
 
-- [Electron Configuration Explorer](https://github.com/iamclau/electron-config-explorer): builds atoms electron by electron with an energy-level diagram and 3D orbitals.
+- [Electron Configuration Explorer](https://github.com/iamclau/electron-config-explorer) ([live site](https://iamclau.github.io/electron-config-explorer/)): builds atoms electron by electron with an energy-level diagram and 3D orbitals.
 
 ## License
 
