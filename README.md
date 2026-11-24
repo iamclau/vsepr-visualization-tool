@@ -57,6 +57,19 @@ Tested on more than 50 molecules and ions, including CO₂, H₂O, NH₃, SO₂,
 
 Limits: one central atom only, and the solver follows the octet rule first (some textbooks prefer expanded-octet structures for ions like SO₄²⁻). The 3D shapes show geometry, not real atom sizes or bond lengths.
 
+## Direct links (for slides and handouts)
+
+Add a `#` part to the address to open the tool on a specific shape or molecule:
+
+| Link | Opens |
+|---|---|
+| `…/vsepr-visualization-tool/#shape=4-1` | The 3D view, filling the window, on 4 domains with 1 lone pair (trigonal pyramidal). The numbers match the chart: domains, then lone pairs. |
+| `#shape=4-1&build=1` | The same shape, built one domain at a time |
+| `#shape=4-1&full=0` | Selects the shape without filling the window |
+| `#solve=PCl3` | The Lewis structure solver, started on PCl₃ (`&step=8` opens step 8, `&step=last` the final step) |
+
+Valid shapes: 2-0, 3-0, 3-1, 4-0, 4-1, 4-2, 5-0, 5-1, 5-2, 5-3, 6-0, 6-1, 6-2, 6-3, 6-4.
+
 ## Run it yourself
 
 No install or build step. Download the repository and open `index.html` in a browser. An internet connection is needed for the 3D views (three.js loads from a CDN) and the fonts.

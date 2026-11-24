@@ -847,5 +847,33 @@
   fit(); addEventListener("resize", fit);
   choose(2, 2, false);
   caption("Click a shape in the chart to watch it build.");
+  // ---------- Direct links (for slides and handouts) ----------
+  // #shape=4-1         open the 3D view full-window on 4 domains, 1 lone pair (same numbering as the chart)
+  // #shape=4-1&build=1 same, but watch it build one domain at a time
+  // #shape=4-1&full=0  select the shape without filling the window
+  // #solve=PCl3        run the Lewis structure solver on a formula (&step=8 opens step 8, &step=last the final step)
+  function applyLink() {
+    const raw = (location.hash || "").replace(/^#/, "") || (location.search || "").replace(/^\?/, "");
+    if (!raw) return;
+    const p = new URLSearchParams(raw.replace(/\+/g, "%2B"));
+    const sh = p.get("shape");
+    if (sh && SH[sh]) {
+      const [n, e] = sh.split("-").map(Number);
+      document.querySelectorAll(".maxed").forEach(unmax);
+      choose(n - e, e, p.get("build") === "1");
+      if (p.get("full") !== "0") maxi($("vWrap")); else $("dash").scrollIntoView();
+      return;
+    }
+    const f = p.get("solve");
+    if (f) {
+      document.querySelectorAll(".maxed").forEach(unmax);
+      $("svIn").value = f; solve(f);
+      const st = p.get("step");
+      if (SV.sol && st) showStep(st === "last" ? SV.sol.steps.length - 1 : (parseInt(st, 10) || 1) - 1);
+      $("solver").scrollIntoView();
+    }
+  }
+  applyLink();
+  addEventListener("hashchange", applyLink);
   requestAnimationFrame(frame);
 })();
